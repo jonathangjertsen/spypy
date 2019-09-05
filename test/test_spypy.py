@@ -1,6 +1,6 @@
 import os
 
-from log_execution import Tracer
+from spypy import Tracer
 from .functions_for_test import trivial_function, nontrivial_function
 
 def test_make_tracer():

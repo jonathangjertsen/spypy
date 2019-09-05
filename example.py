@@ -1,4 +1,4 @@
-from log_execution import Tracer
+from spypy import Tracer
 
 def square(x):
     return x * x
