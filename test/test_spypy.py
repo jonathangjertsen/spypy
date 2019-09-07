@@ -1,62 +1,102 @@
+import json
 import os
 
 import pytest
 
-from spypy import Tracer, make_linetrace_csv
-from .functions_for_test import trivial_function, nontrivial_function
-from .files_test.b import func_b
+from spypy import Tracer, Snapshot
+from .functions_for_test import trivial_function
 
 @pytest.fixture()
 def tracer():
     return Tracer()
 
 
-def test_make_tracer():
-    tracer = Tracer()
-    assert tracer is not None
+def test_tracer_initial_results_of_public_api_calls(tracer):
+    assert (
+        tracer.uncaught_exception,
+        tracer.trace_completed,
+        tracer.snapshots(),
+        tracer.json(),
+        tracer.csv().strip(),
+    ) == (
+        None,
+        False,
+        [],
+        "[]",
+        ",".join(Snapshot._fields),
+    )
 
 
-def test_run_tracer(tracer):
+def test_tracer_trivial_function_reproducibility(tracer):
     """
     Test with a "trivial" function
     """
     tracer.trace(trivial_function)
-    results = tracer.results()
 
-    assert len(results) == 6
+    assert tracer.snapshots() == tracer.snapshots()
+    assert tracer.snapshots() is not tracer.snapshots()
 
-    assert results[0]["event"] == "call"
-    assert all(result["event"] == "line" for result in results[1:-1])
-    assert results[-1]["event"] == "return"
+def test_tracer_trivial_function_globals(tracer):
+    tracer.trace(trivial_function)
+    assert [
+        snapshot.globals
+        for snapshot in tracer.snapshots()
+    ] == [None] * trivial_function.length
 
-    assert all(result["arg"] is None for result in results[:-1])
-    assert results[-1]["arg"] == 3
+def test_tracer_trivial_function_locals(tracer):
+    tracer.trace(trivial_function)
+    assert [
+        snapshot.locals
+        for snapshot in tracer.snapshots()
+    ] == [
+        {},
+        {"a": 1},
+        {"a": 1, "b": 2},
+        {"a": 1, "b": 2, "c": 3},
+        {"a": 1, "c": 3},
+    ]
+
+def test_tracer_trivial_function_line_numbers(tracer):
+    tracer.trace(trivial_function)
+    assert [
+        snapshot.line_number
+        for snapshot in tracer.snapshots()
+    ] == [trivial_function.start + i + 1 for i in range(trivial_function.length)]
 
 
-def test_save_json(tracer):
-    json_filename = "dummy_json.json"
-
-    try:
-        tracer.trace(nontrivial_function)
-        tracer.save_json(json_filename)
-    finally:
-        os.remove(json_filename)
+def test_tracer_trivial_function_filename(tracer):
+    tracer.trace(trivial_function)
+    assert all(
+        snapshot.filename.endswith("functions_for_test.py")
+        for snapshot in tracer.snapshots()
+    )
 
 
-def test_list_filenames(tracer):
-    tracer.trace(func_b)
+def test_tracer_trivial_function_line_content(tracer):
+    with open(os.path.join(os.path.dirname(__file__), "functions_for_test.py")) as file:
+        lines = [line.rstrip() for line in file.readlines()]
+    relevant_lines = lines[trivial_function.start:trivial_function.start+trivial_function.length]
 
-    files = tracer.filenames()
-    assert len(files) == 2
+    tracer.trace(trivial_function)
+
+    assert [snapshot.line_content for snapshot in tracer.snapshots()] == relevant_lines
 
 
-def test_linetrace(tracer):
-    csv_filename = "dummy_csv.csv"
+def test_tracer_trivial_function_json(tracer):
+    tracer.trace(trivial_function)
 
-    tracer.trace(func_b)
-    lines = tracer.linetrace()
+    jsonstr = tracer.json()
+    data = json.loads(jsonstr)
 
-    try:
-        make_linetrace_csv(lines, csv_filename)
-    finally:
-        os.remove(csv_filename)
+    assert [Snapshot(**entry) for entry in data] == tracer.snapshots()
+
+
+def test_tracer_trivial_function_csv(tracer):
+    tracer.trace(trivial_function)
+
+    header_n_lines = 1
+    trailing_newline_n_lines = 1
+
+    csvstr = tracer.csv()
+    assert len(csvstr.split("\n")) == header_n_lines + trivial_function.length + trailing_newline_n_lines
+

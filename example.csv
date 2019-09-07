@@ -1,0 +1,31 @@
+file,line_number,line_content,locals
+example.py,7,    a = 1,{}
+example.py,8,    result = [],{'a': 1}
+example.py,9,    i = 5,"{'a': 1, 'result': []}"
+example.py,10,    while (i > 0):,"{'a': 1, 'i': 5, 'result': []}"
+example.py,11,        a = square(a + 1),"{'a': 1, 'i': 5, 'result': []}"
+example.py,4,    return x * x,{'x': 2}
+example.py,12,        result.append(a),"{'a': 4, 'i': 5, 'result': []}"
+example.py,13,        i -= 1,"{'a': 4, 'i': 5, 'result': [4]}"
+example.py,10,    while (i > 0):,"{'a': 4, 'i': 4, 'result': [4]}"
+example.py,11,        a = square(a + 1),"{'a': 4, 'i': 4, 'result': [4]}"
+example.py,4,    return x * x,{'x': 5}
+example.py,12,        result.append(a),"{'a': 25, 'i': 4, 'result': [4]}"
+example.py,13,        i -= 1,"{'a': 25, 'i': 4, 'result': [4, 25]}"
+example.py,10,    while (i > 0):,"{'a': 25, 'i': 3, 'result': [4, 25]}"
+example.py,11,        a = square(a + 1),"{'a': 25, 'i': 3, 'result': [4, 25]}"
+example.py,4,    return x * x,{'x': 26}
+example.py,12,        result.append(a),"{'a': 676, 'i': 3, 'result': [4, 25]}"
+example.py,13,        i -= 1,"{'a': 676, 'i': 3, 'result': [4, 25, 676]}"
+example.py,10,    while (i > 0):,"{'a': 676, 'i': 2, 'result': [4, 25, 676]}"
+example.py,11,        a = square(a + 1),"{'a': 676, 'i': 2, 'result': [4, 25, 676]}"
+example.py,4,    return x * x,{'x': 677}
+example.py,12,        result.append(a),"{'a': 458329, 'i': 2, 'result': [4, 25, 676]}"
+example.py,13,        i -= 1,"{'a': 458329, 'i': 2, 'result': [4, 25, 676, 458329]}"
+example.py,10,    while (i > 0):,"{'a': 458329, 'i': 1, 'result': [4, 25, 676, 458329]}"
+example.py,11,        a = square(a + 1),"{'a': 458329, 'i': 1, 'result': [4, 25, 676, 458329]}"
+example.py,4,    return x * x,{'x': 458330}
+example.py,12,        result.append(a),"{'a': 210066388900, 'i': 1, 'result': [4, 25, 676, 458329]}"
+example.py,13,        i -= 1,"{'a': 210066388900, 'i': 1, 'result': [4, 25, 676, 458329, 210066388900]}"
+example.py,10,    while (i > 0):,"{'a': 210066388900, 'i': 0, 'result': [4, 25, 676, 458329, 210066388900]}"
+example.py,14,    return result,"{'a': 210066388900, 'i': 0, 'result': [4, 25, 676, 458329, 210066388900]}"
