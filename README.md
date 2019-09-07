@@ -1,6 +1,32 @@
 # spypy
 Spy on your Python code by snapshotting the application state for each line of code
 
+## Install
+
+TODO make available on PyPI
+
+## Usage
+
+```
+from spypy import Tracer
+
+if __name__ == "__main__":
+    # Run tracer
+    tracer = Tracer()
+    tracer.trace(your_function, arguments)
+
+    # List-representation
+    tracer.snapshots()
+
+    # CSV representatiom
+    tracer.csv()
+
+    # JSON representation
+    tracer.json()
+```
+
+## Example
+
 Example file (nonsensical function just to show some features)
 
 ```
@@ -74,4 +100,18 @@ example.py,6,    return x * x,,{'x': 104080805}
 example.py,14,        result.append(a),,"{'i': 1, 'result': [9, 100, 10201, 104080804], 'a': 10832813969448025}"
 example.py,15,        i -= 1,,"{'i': 1, 'result': [9, 100, 10201, 104080804, 10832813969448025], 'a': 10832813969448025}"
 example.py,12,    while (i > 0):,,"{'i': 0, 'result': [9, 100, 10201, 104080804, 10832813969448025], 'a': 10832813969448025}"
-example.py,16,    return result,,"{'i': 0, 'result': [9, 100, 10201, 104080804, 10832813969448025], 'a': 10832813969448025}"```
+example.py,16,    return result,,"{'i': 0, 'result': [9, 100, 10201, 104080804, 10832813969448025], 'a': 10832813969448025}"
+```
+
+
+## FAQ
+
+### Why not just use [PySnooper](https://github.com/cool-RR/PySnooper)?
+
+Because I didn't know about that project until development I was almpost done with the first version.
+
+Still, this has a couple of design choices that makes spypy slightly friendlier for some usecases:
+
+* More flexible output: snapshots are stored as intermediate representation rather than writing immediately
+    * This is of course massively more memory-intensive, so this may need to change in the future
+* More direct API (`tracer.trace(function)` vs using a decorator on a function)
