@@ -128,6 +128,7 @@ class Tracer(object):
     # PUBLIC API FOR OPERATING ON TRACE RESULTS
 
     def snapshots(self) -> List[Snapshot]:
+        """Returns a list of Snapshot objects corresponding to every line that was executed."""
         file_contents = self._file_contents()
 
         return [
@@ -143,15 +144,18 @@ class Tracer(object):
         ]
 
     def json(self, indent=2) -> str:
+        """Returns a JSON representation of every line that was executed."""
         return json.dumps([
             dict(snapshot._asdict())
             for snapshot in self.snapshots()
         ], indent=indent)
 
     def csv(self) -> str:
+        """Returns a CSV string representation of every line that was executed"""
         return make_linetrace_csv(self.snapshots())
 
     def save_csv(self, filename: str):
+        """Saves a representation of every line that was executed to a file."""
         make_linetrace_csv(self.snapshots(), filename)
 
     # HELPERS
