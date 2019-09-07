@@ -1,24 +1,21 @@
-from spypy import Tracer
+from spypy import Tracer, make_linetrace_csv
 
 def square(x):
     return x * x
 
-def function():
-    a = square(2)
-    return square(a)
-
+def some_function():
+    a = 1
+    result = []
+    i = 5
+    while (i > 0):
+        a = square(a + 1)
+        result.append(a)
+        i -= 1
+    return result
 
 if __name__ == "__main__":
-    tracer = Tracer({
-        "frame": {
-            "code": {
-                "filename": "",
-            },
-            "lineno": "",
-            "locals": "",
-        },
-        "event": "",
-        "arg": "",
-    }, non_serializable_fill=repr)
-    tracer.trace(function)
-    print(tracer.json())
+    tracer = Tracer(non_serializable_fill=repr)
+    tracer.trace(some_function)
+    make_linetrace_csv(tracer.linetrace(), "example.csv")
+    with open("example.csv") as example:
+        print(example.read())

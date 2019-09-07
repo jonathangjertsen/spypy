@@ -1,8 +1,14 @@
+from csv import DictWriter
+from copy import deepcopy
 import json
 import sys
-from typing import Any, Union, Callable
+from collections import OrderedDict
+from typing import Any, Union, Callable, List
 
 Primitive = Union[int, float, str, bool, None]
+
+class RequiredFieldMissing(KeyError):
+    pass
 
 def ensure_serializable(input_dict: dict, non_serializable_fill: Union[Callable[[Any], Primitive], Primitive]=None) -> dict:
     output_dict = {}
@@ -16,7 +22,7 @@ def ensure_serializable(input_dict: dict, non_serializable_fill: Union[Callable[
                 output_dict[key] = non_serializable_fill
         else:
             output_dict[key] = value
-    return output_dict
+    return deepcopy(output_dict)
 
 class TracedEvent(object):
     __slots__ = ["frame", "event", "arg", "fields"]
@@ -44,6 +50,8 @@ class TracedEvent(object):
 
     def to_dict(self, non_serializable_fill):
         result = {}
+        if "filename" in self.fields:
+            result["filename"] = self.frame.f_code.co_filename
         if "event" in self.fields:
             result["event"] = self.event
         if "arg" in self.fields:
@@ -72,10 +80,62 @@ class TracedEvent(object):
                     code["filename"] = self.frame.f_code.co_filename
         return result
 
+def format_fields(in_dict, indent=0):
+    lines = []
+    for key, value in in_dict.items():
+        lines.append("-" + "-" * indent + "> " +  key)
+        if isinstance(value, dict):
+            lines.extend(format_fields(value, indent + 1))
+    if indent == 0:
+        return "\n".join(lines)
+    else:
+        return lines
+
+class ExecutedLine(object):
+    def __init__(self, file, line_number, line_content, locals=None, globals=None):
+        self.file = file
+        self.line_number = line_number
+        self.line_content = line_content
+        self.locals = locals
+
+    @classmethod
+    def fields(cls):
+        return ("file", "line_number", "line_content", "locals")
+
+    def to_dict(self):
+        return OrderedDict([
+            (attr, getattr(self, attr))
+            for attr in type(self).fields()
+        ])
+
+def make_linetrace_csv(list_of_executed_lines, filename):
+    with open(filename, "w", newline="") as file:
+        writer = DictWriter(file, fieldnames=ExecutedLine.fields())
+        writer.writeheader()
+        for line in list_of_executed_lines:
+            writer.writerow(line.to_dict())
+
 class Tracer(object):
+    @classmethod
+    def default_fields(cls):
+        return {
+            "frame": {
+                "code": {
+                    "filename": "",
+                },
+                "lineno": "",
+                "locals": "",
+            },
+            "event": "",
+            "arg": "",
+            "filename": "",
+        }
+
     def __init__(self, fields=None, non_serializable_fill=None):
         self._orig_trace = None
         self._results = []
+        if fields is None:
+            fields = type(self).default_fields()
         self.fields = fields
         self.non_serializable_fill = non_serializable_fill
 
@@ -125,3 +185,60 @@ class Tracer(object):
     def save_json(self, filename):
         with open(filename, "w") as json_file:
             json_file.write(self.json())
+
+    def check_field_was_captured(self, path):
+        fields = self.fields
+        for field in path:
+            if field not in fields:
+                raise RequiredFieldMissing(
+                    "{} was not captured during trace. Fields: {}".format(
+                        "->".join(path),
+                        format_fields(self.fields)
+                    )
+                )
+            fields = fields[field]
+
+    def filenames(self):
+        self.check_field_was_captured(("filename", ))
+        return set(result["filename"] for result in self._results)
+
+    def _file_contents(self):
+        filenames = self.filenames()
+        file_contents = {}
+        for filename in filenames:
+            with open(filename) as file:
+                file_contents[filename] = file.readlines()
+        return file_contents
+
+    def linetrace(self):
+        self.check_field_was_captured(("filename",))
+        self.check_field_was_captured(("frame", "lineno"))
+        self.check_field_was_captured(("event",))
+
+        file_contents = self._file_contents()
+        lines = []
+        for result in self._results:
+            if result["event"] == "line":
+                file = result["filename"]
+                line_number = result["frame"]["lineno"]
+                lines_for_file = file_contents[file]
+                line_content = lines_for_file[line_number - 1].rstrip()
+
+                try:
+                    locals = result["frame"]["locals"]
+                except KeyError:
+                    locals = None
+
+                try:
+                    globals = result["frame"]["globals"]
+                except KeyError:
+                    globals = None
+
+                lines.append(ExecutedLine(
+                    file=file,
+                    line_number=line_number,
+                    line_content=line_content,
+                    locals=locals,
+                    globals=globals,
+                ))
+        return lines
