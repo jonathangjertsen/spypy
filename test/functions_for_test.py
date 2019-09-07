@@ -17,10 +17,15 @@ trivial_function.start = 10
 trivial_function.length = 5
 
 
-def nontrivial_function():
-    def closure(a):
-        return math.sqrt(a)
-    import math
-    a = pow(2, 4)
-    return closure(a)
+def function_with_args(x, y=1, *, z=3):
+    return x + y + z
 
+
+
+
+
+
+
+
+def function_that_raises_exception():
+    raise ValueError("Error!")

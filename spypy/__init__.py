@@ -23,6 +23,11 @@ TraceFunc = Callable[[FrameType, str, Any], 'TraceFunc']
 
 ### CONSTANTS
 
+# Setting this to True currently breaks when running pytest --cov
+# This workaround prevents it from breaking, at the cost of pytest thinking some
+# lines have not been ran (since its own trace function is not applied there)
+COOPERATION_WITH_OTHER_USERS_OF_SYS_SETTRACE_IS_POSSIBLE = False
+
 IGNORED_FILES = {
     "<frozen importlib._bootstrap>",
     __file__,
@@ -30,10 +35,10 @@ IGNORED_FILES = {
 
 ### DATA CONTAINERS
 
-Snapshot = namedtuple("Snapshot", "filename line_number line_content globals locals")
+Snapshot = namedtuple("Snapshot", "filename line_number line_content globals_ locals_")
 Snapshot.__doc__ = """Snapshot of the application when the given line was executed."""
 
-_FastSnapshot = namedtuple("_FastSnapshot", "filename line_number event globals locals")
+_FastSnapshot = namedtuple("_FastSnapshot", "filename line_number event globals_ locals_")
 _FastSnapshot.__doc__ = """Snapshot of the application when the given line was executed.
 
 This version is created during execution, and is faster to create than a Snapshot because it
@@ -58,12 +63,12 @@ class Tracer(object):
         # A boolean, whether to capture the local variables in each snapshot.
         # May be set to False for improved performance (the global variables need to be serialized for every snapshot).
         # Set to True by default since the history of local variables often gives insight into any bugs that occur during execution.
-        self._capture_locals = capture_locals
+        self.capture_locals = capture_locals
 
-        # A boolean, whether to capture the globals in each snapshot.
+        # A boolean, whether to capture the _globals in each snapshot.
         # May be set to False for improved performance (the global variables need to be serialized for every snapshot).
         # Set to False by default because they rarely change and cause a lot of noise to be present in the output.
-        self._capture_globals = capture_globals
+        self.capture_globals = capture_globals
 
         # Many values are not serializable. In this case, some action must be performed to represent the value.
         # non_serializable_fill may either be:
@@ -96,7 +101,8 @@ class Tracer(object):
         """
         self._start()
         try:
-            func(*args, **kwargs)
+            result = func(*args, **kwargs)
+            return result
         except Exception as exc:
             self.uncaught_exception = sys.exc_info()
         finally:
@@ -128,8 +134,8 @@ class Tracer(object):
             Snapshot(
                 line_number=snapshot.line_number,
                 filename=snapshot.filename,
-                locals=snapshot.locals,
-                globals=snapshot.globals,
+                locals_=snapshot.locals_,
+                globals_=snapshot.globals_,
                 line_content=file_contents[snapshot.filename][snapshot.line_number - 1].rstrip()
             )
             for snapshot in self._snapshots
@@ -141,10 +147,6 @@ class Tracer(object):
             dict(snapshot._asdict())
             for snapshot in self.snapshots()
         ], indent=indent)
-
-    def save_json(self, filename):
-        with open(filename, "w") as json_file:
-            json_file.write(self.json())
 
     def csv(self) -> str:
         return make_linetrace_csv(self.snapshots())
@@ -175,7 +177,7 @@ class Tracer(object):
         sys.settrace(self._orig_trace)
         self.trace_completed = True
 
-    def _trace_func(self, frame: FrameType, event: str, _: Any) -> TraceFunc:
+    def _trace_func(self, frame: FrameType, event: str, arg: Any) -> TraceFunc:
         """Callback for sys.settrace
 
         https://docs.python.org/3.5/library/sys.html#sys.settrace
@@ -185,13 +187,19 @@ class Tracer(object):
                 filename=frame.f_code.co_filename,
                 line_number=frame.f_lineno,
                 event=event,
-                globals=ensure_serializable(
+                globals_=ensure_serializable(
                     frame.f_globals, self._non_serializable_fill
-                ) if self._capture_globals else None,
-                locals=ensure_serializable(
+                ) if self.capture_globals else None,
+                locals_=ensure_serializable(
                     frame.f_locals, self._non_serializable_fill
-                ) if self._capture_locals else None,
+                ) if self.capture_locals else None,
             ))
+        if self._orig_trace is not None and COOPERATION_WITH_OTHER_USERS_OF_SYS_SETTRACE_IS_POSSIBLE:
+            try:
+                sys.settrace(None)
+                self._orig_trace(frame, event, arg)
+            finally:
+                sys.settrace(self._trace_func)
         return self._trace_func
 
     def _filenames(self) -> Set[str]:
