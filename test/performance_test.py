@@ -1,4 +1,5 @@
 import pickle
+import json
 import time
 
 import spypy
@@ -18,24 +19,26 @@ def perftest_ten_lines_one_var():
     a += 1
     a += 1
 
-def perftest_short_loop():
-    i = 10
-    while i > 0:
-        i -= 1
+def perftest_loop(n):
+    while n > 0:
+        n -= 1
 
-def perftest_long_loop():
-    i = 10000
-    while i > 0:
-        i -= 1
-
-def perftest_list_append():
-    i = 1000
+def perftest_list_append(n):
     res = []
-    while i > 0:
-        i -= 1
-        res.append(i)
+    while n > 0:
+        n -= 1
+        res.append(n)
 
+def perftest_json_dump(iterations, list_size):
+    for _ in range(iterations):
+        numbers = list(range(list_size))
+        string = json.dumps(numbers)
 
+def perftest_numpy(iterations, list_size):
+    import numpy as np
+    for _ in range(iterations):
+        arr = np.array(list(range(list_size)))
+        sqrt = np.sqrt(arr)
 
 def run_performance_test(ntimes, func, *args, **kwargs):
     tracer = spypy.Tracer()
@@ -87,21 +90,26 @@ def compare_timings(timings_without, timings_with):
     }
 
 if __name__ == "__main__":
-    for perftest, iterations in (
-        (perftest_minimal, 1000),
-        (perftest_ten_lines_one_var, 1000),
-        (perftest_short_loop, 1000),
-        (perftest_long_loop, 10),
-        (perftest_list_append, 3),
+    for name, perftest, iterations, kwargs in (
+        ("Do nothing", perftest_minimal, 1000, {}),
+        ("Ten lines, one var", perftest_ten_lines_one_var, 1000, {}),
+        ("Loop (10 iterations)", perftest_loop, 1000, {"n": 10}),
+        ("Loop (10000 iterations)", perftest_loop, 10, {"n": 10000}),
+        ("List append (1000 ints)", perftest_list_append, 3, {"n": 1000}),
+        ("JSON dump (10 iterations, 1000 ints)", perftest_json_dump, 5, {"iterations": 10, "list_size": 1000}),
+        ("Numpy array (10 iterations, 1000 ints)", perftest_numpy, 5, {"iterations": 10, "list_size": 1000})
     ):
-        time_with, time_without, mem_consumption = run_performance_test(iterations, perftest)
+        try:
+            time_with, time_without, mem_consumption = run_performance_test(iterations, perftest, **kwargs)
 
-        analysis = compare_timings(time_with, time_without)
+            analysis = compare_timings(time_with, time_without)
 
-        max_penalty = max(analysis["penalty_factor_mean"], analysis["penalty_factor_min"], analysis["penalty_factor_max"])
-        min_penalty = min(analysis["penalty_factor_mean"], analysis["penalty_factor_min"], analysis["penalty_factor_max"])
-        print(
-            "{: >40}  ".format(perftest.__name__),
-            "{:.0f}-{:.0f} times slower with spying, ".format(min_penalty, max_penalty),
-            "Memory: {:.2f} kB".format(mem_consumption / 1024)
-        )
+            max_penalty = max(analysis["penalty_factor_mean"], analysis["penalty_factor_min"], analysis["penalty_factor_max"])
+            min_penalty = min(analysis["penalty_factor_mean"], analysis["penalty_factor_min"], analysis["penalty_factor_max"])
+            print(
+                "{: >40}  ".format(name),
+                "{:.0f}-{:.0f} times slower with spying, ".format(min_penalty, max_penalty),
+                "Memory: {:.2f} kB".format(mem_consumption / 1024)
+            )
+        except Exception as exc:
+            print("Exception during test '{}': {}".format(name, exc))
