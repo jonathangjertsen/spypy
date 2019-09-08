@@ -209,3 +209,30 @@ def test_tracer_context_manager(tracer):
 
     assert len(tracer.snapshots()) == 3
     assert tracer.uncaught_exception
+
+
+def test_tracer_context_manager_as(tracer):
+    def a():
+        v = 1
+        b = 2
+        raise ValueError("Oops")
+
+    with tracer as tracer_:
+        assert tracer_ is tracer
+        a()
+
+    assert len(tracer.snapshots()) == 3
+    assert tracer.uncaught_exception
+
+
+def test_tracer_context_manager_twice(tracer):
+    def a():
+        v = 1
+        b = 2
+
+    with tracer:
+        a()
+        a()
+
+    assert len(tracer.snapshots()) == 4
+    assert not tracer.uncaught_exception
