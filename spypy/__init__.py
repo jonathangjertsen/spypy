@@ -194,12 +194,14 @@ class Tracer(object):
                     frame.f_locals, self._non_serializable_fill
                 ) if self.capture_locals else None,
             ))
+
         if self._orig_trace is not None and COOPERATION_WITH_OTHER_USERS_OF_SYS_SETTRACE_IS_POSSIBLE:
             try:
                 sys.settrace(None)
                 self._orig_trace(frame, event, arg)
             finally:
                 sys.settrace(self._trace_func)
+
         return self._trace_func
 
     def _filenames(self) -> Set[str]:
@@ -219,15 +221,14 @@ def ensure_serializable(input_dict: dict, non_serializable_fill: Union[Callable[
     output_dict = {}
     for key, value in input_dict.items():
         try:
-            json.dumps(value)
+            dump = json.dumps(value)
+            output_dict[key] = json.loads(dump)
         except:
             if callable(non_serializable_fill):
                 output_dict[key] = non_serializable_fill(value)
             else:
                 output_dict[key] = non_serializable_fill
-        else:
-            output_dict[key] = value
-    return deepcopy(output_dict)
+    return output_dict
 
 def make_linetrace_csv(snapshots, filename: Optional[str]=None) -> Optional[str]:
     if filename:
