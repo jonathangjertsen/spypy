@@ -1,4 +1,6 @@
 # spypy
+[![Build Status](https://travis-ci.com/jonathangjertsen/spypy.svg?branch=master)](https://travis-ci.com/jonathangjertsen/spypy)
+
 Spy on your Python code by snapshotting the application state for each line of code
 
 ## Install
